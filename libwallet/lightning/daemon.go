@@ -13,7 +13,12 @@ import (
 	"github.com/lightningnetwork/lnd/build"
 	"github.com/lightningnetwork/lnd/lnrpc"
 	"github.com/lightningnetwork/lnd/lnrpc/invoicesrpc"
+	"github.com/lightningnetwork/lnd/lnrpc/signrpc"
 	"github.com/lightningnetwork/lnd/signal"
+)
+
+const (
+	DefaultDaemonConfigFile = "lnd.conf"
 )
 
 // Daemon represents the lightning daemon
@@ -129,7 +134,8 @@ func (d *Daemon) createConfig(workingDir string, interceptor signal.Interceptor)
 		lndConfig.Bitcoin.SimNet = true
 	}
 	lndConfig.LndDir = workingDir
-	lndConfig.ConfigFile = path.Join(workingDir, "lnd.conf")
+	lndConfig.ConfigFile = path.Join(workingDir, DefaultDaemonConfigFile)
+	lndConfig.DisableRest = true // Disable REST API
 
 	cfg := lndConfig
 	// If a config file exists parse it.
@@ -170,6 +176,7 @@ func (d *Daemon) createConfig(workingDir string, interceptor signal.Interceptor)
 	}
 
 	cfg.SubRPCServers.InvoicesRPC = &invoicesrpc.Config{}
+	cfg.SubRPCServers.SignRPC = &signrpc.Config{}
 
 	conf, err := lnd.ValidateConfig(cfg, interceptor, fileParser, flagParser)
 	if err != nil {

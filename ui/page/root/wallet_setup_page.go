@@ -46,14 +46,15 @@ type CreateWallet struct {
 
 	walletActions []*walletAction
 
-	assetTypeSelector     *components.AssetTypeSelector
-	assetTypeError        cryptomaterial.Label
-	walletName            cryptomaterial.Editor
-	watchOnlyWalletHex    cryptomaterial.Editor
-	passwordEditor        cryptomaterial.Editor
-	confirmPasswordEditor cryptomaterial.Editor
-	watchOnlyCheckBox     cryptomaterial.CheckBoxStyle
-	materialLoader        material.LoaderStyle
+	assetTypeSelector          *components.AssetTypeSelector
+	assetTypeError             cryptomaterial.Label
+	walletName                 cryptomaterial.Editor
+	watchOnlyWalletHex         cryptomaterial.Editor
+	passwordEditor             cryptomaterial.Editor
+	confirmPasswordEditor      cryptomaterial.Editor
+	watchOnlyCheckBox          cryptomaterial.CheckBoxStyle
+	materialLoader             material.LoaderStyle
+	createLightningWltCheckBox cryptomaterial.CheckBoxStyle
 
 	continueBtn cryptomaterial.Button
 	restoreBtn  cryptomaterial.Button
@@ -78,12 +79,13 @@ func NewCreateWallet(l *load.Load) *CreateWallet {
 		assetTypeSelector: components.NewAssetTypeSelector(l),
 		list:              layout.List{Axis: layout.Vertical},
 
-		continueBtn:          l.Theme.Button(values.String(values.StrContinue)),
-		restoreBtn:           l.Theme.Button(values.String(values.StrRestore)),
-		importBtn:            l.Theme.Button(values.String(values.StrImport)),
-		watchOnlyCheckBox:    l.Theme.CheckBox(new(widget.Bool), values.String(values.StrImportWatchingOnlyWallet)),
-		selectedWalletAction: -1,
-		assetTypeError:       l.Theme.Body1(""),
+		continueBtn:                l.Theme.Button(values.String(values.StrContinue)),
+		restoreBtn:                 l.Theme.Button(values.String(values.StrRestore)),
+		importBtn:                  l.Theme.Button(values.String(values.StrImport)),
+		watchOnlyCheckBox:          l.Theme.CheckBox(new(widget.Bool), values.String(values.StrImportWatchingOnlyWallet)),
+		selectedWalletAction:       -1,
+		assetTypeError:             l.Theme.Body1(""),
+		createLightningWltCheckBox: l.Theme.CheckBox(new(widget.Bool), values.String(values.StrCreateLightningWallet)),
 
 		Load: l,
 	}
@@ -325,6 +327,17 @@ func (pg *CreateWallet) walletOptions(gtx C) D {
 func (pg *CreateWallet) createNewWallet(gtx C) D {
 	return layout.Flex{Axis: layout.Vertical, Spacing: layout.SpaceBetween}.Layout(gtx,
 		layout.Rigid(func(gtx C) D {
+			if *pg.assetTypeSelector.SelectedAssetType() == libutils.BTCWalletAsset {
+				return pg.createLightningWltCheckBox.Layout(gtx)
+			}
+			return D{}
+		}),
+		layout.Rigid(func(gtx C) D {
+			// Lightning wallet doesn't use user provided name
+			// Disable name input for lightning wallets
+			if pg.createLightningWltCheckBox.CheckBox.Value {
+				return D{}
+			}
 			return layout.Inset{
 				Top:    values.MarginPadding14,
 				Bottom: values.MarginPadding20,
@@ -467,18 +480,21 @@ func (pg *CreateWallet) HandleUserInteractions() {
 				wal.SetBoolConfigValueForKey(sharedW.AccountMixerConfigSet, true)
 
 			case libutils.BTCWalletAsset:
-				_, err := pg.WL.AssetsManager.CreateNewBTCWallet(pg.walletName.Editor.Text(), pg.passwordEditor.Editor.Text(), sharedW.PassphraseTypePass)
-				if err != nil {
-					if err.Error() == libutils.ErrExist {
-						pg.walletName.SetError(values.StringF(values.StrWalletExist, pg.walletName.Editor.Text()))
+				if !pg.createLightningWltCheckBox.CheckBox.Value {
+					_, err := pg.WL.AssetsManager.CreateNewBTCWallet(pg.walletName.Editor.Text(), pg.passwordEditor.Editor.Text(), sharedW.PassphraseTypePass)
+					if err != nil {
+						if err.Error() == libutils.ErrExist {
+							pg.walletName.SetError(values.StringF(values.StrWalletExist, pg.walletName.Editor.Text()))
+							return
+						}
+
+						errModal := modal.NewErrorModal(pg.Load, err.Error(), modal.DefaultClickFunc())
+						pg.ParentWindow().ShowModal(errModal)
 						return
 					}
-
-					errModal := modal.NewErrorModal(pg.Load, err.Error(), modal.DefaultClickFunc())
-					pg.ParentWindow().ShowModal(errModal)
-					return
+				} else {
+					pg.WL.AssetsManager.CreateNewBTCLightningWallet(pg.walletName.Editor.Text(), pg.passwordEditor.Editor.Text(), sharedW.PassphraseTypePass)
 				}
-
 			case libutils.LTCWalletAsset:
 				_, err := pg.WL.AssetsManager.CreateNewLTCWallet(pg.walletName.Editor.Text(), pg.passwordEditor.Editor.Text(), sharedW.PassphraseTypePass)
 				if err != nil {

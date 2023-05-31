@@ -3,7 +3,13 @@ package lightning
 import (
 	"context"
 	"fmt"
+	"path"
 	"time"
+
+	"github.com/decred/dcrlnd/lncfg"
+	"github.com/lightningnetwork/lnd/lnrpc"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 )
 
 type Service struct {
@@ -61,4 +67,58 @@ func (s *Service) Start() error {
 	}()
 
 	return nil
+}
+
+// Initialize a new lightning wallet
+func (s *Service) InitWallet(privatePassphrase string) error {
+	conn, err := s.getBasicClientCon()
+	if err != nil {
+		return err
+	}
+
+	walletClient := lnrpc.NewWalletUnlockerClient(conn)
+	// TODO: Save the wallet seed util the user is able to verify the wallet seed.
+	seedR, err := walletClient.GenSeed(context.Background(), &lnrpc.GenSeedRequest{})
+	if err != nil {
+		return err
+	}
+
+	req := &lnrpc.InitWalletRequest{
+		WalletPassword:     []byte(privatePassphrase),
+		RecoveryWindow:     200,
+		CipherSeedMnemonic: seedR.CipherSeedMnemonic,
+	}
+	_, err = walletClient.InitWallet(context.Background(), req)
+	if err != nil {
+		return err
+	}
+
+	return err
+}
+
+func (s *Service) getBasicClientCon() (*grpc.ClientConn, error) {
+	creds, err := credentials.NewClientTLSFromFile(path.Join(s.config.WorkingDir, defaultTLSCertFilename), "")
+	if err != nil {
+		return nil, err
+	}
+	// Create a dial options array.
+	opts := []grpc.DialOption{
+		grpc.WithTransportCredentials(creds),
+		// We need to use a custom dialer so we can also connect to
+		// unix sockets and not just TCP addresses.
+		grpc.WithContextDialer(lncfg.ClientAddressDialer(defaultRPCPort)),
+		grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(lnrpc.MaxGrpcMsgSize)),
+	}
+
+	conn, err := grpc.Dial(defaultRPCHostPort, opts...)
+	if err != nil {
+		return nil, fmt.Errorf("unable to connect to RPC server: %v",
+			err)
+	}
+
+	return conn, nil
+}
+
+func (s *Service) GetClient() *Client {
+	return s.client
 }

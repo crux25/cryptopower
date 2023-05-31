@@ -137,6 +137,7 @@ const EN = `
 "cost" = "Cost%v"
 "create" = "Create"
 "createANewWallet" = "Create a new wallet"
+"createLightningWallet" = "Create a lightning wallet"
 "createNewAccount" = "Create new account"
 "createNewOrder" = "Create new order"
 "createNSetUpAccs" = "Create and setup the needed accounts for you."

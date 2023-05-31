@@ -247,6 +247,7 @@ const (
 	StrCost                            = "cost"
 	StrCreate                          = "create"
 	StrCreateANewWallet                = "createANewWallet"
+	StrCreateLightningWallet           = "createLightningWallet"
 	StrCreateNewAccount                = "createNewAccount"
 	StrCreateNewOrder                  = "createNewOrder"
 	StrCreateNSetUpAccs                = "createNSetUpAccs"
