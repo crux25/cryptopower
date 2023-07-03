@@ -246,6 +246,7 @@ func (pg *WalletDexServerSelector) pageContentLayout(gtx C) D {
 	pageContent := []func(gtx C) D{
 		pg.sectionTitle(values.String(values.StrSelectWalletToOpen)),
 		pg.walletListLayout,
+		pg.lightningSection,
 		pg.layoutAddMoreRowSection(pg.addWalClickable, values.String(values.StrAddWallet), pg.Theme.Icons.NewWalletIcon.Layout24dp),
 		pg.sectionTitle(values.String(values.StrExchangeIntro)),
 		pg.layoutAddMoreRowSection(pg.exchangeBtn, values.String(values.StrExchange), pg.Theme.Icons.AddExchange.Layout16dp),

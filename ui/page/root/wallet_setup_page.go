@@ -493,7 +493,12 @@ func (pg *CreateWallet) HandleUserInteractions() {
 						return
 					}
 				} else {
-					pg.WL.AssetsManager.CreateNewBTCLightningWallet(pg.walletName.Editor.Text(), pg.passwordEditor.Editor.Text(), sharedW.PassphraseTypePass)
+					err := pg.WL.AssetsManager.CreateNewBTCLightningWallet(pg.walletName.Editor.Text(), pg.passwordEditor.Editor.Text(), sharedW.PassphraseTypePass)
+					if err != nil {
+						errModal := modal.NewErrorModal(pg.Load, err.Error(), modal.DefaultClickFunc())
+						pg.ParentWindow().ShowModal(errModal)
+						return
+					}
 				}
 			case libutils.LTCWalletAsset:
 				_, err := pg.WL.AssetsManager.CreateNewLTCWallet(pg.walletName.Editor.Text(), pg.passwordEditor.Editor.Text(), sharedW.PassphraseTypePass)
@@ -595,12 +600,12 @@ func (pg *CreateWallet) validCreateWalletInputs() bool {
 		return false
 	}
 
-	if !utils.StringNotEmpty(pg.walletName.Editor.Text()) {
+	if !utils.StringNotEmpty(pg.walletName.Editor.Text()) && !pg.createLightningWltCheckBox.CheckBox.Value {
 		pg.walletName.SetError(values.String(values.StrEnterWalletName))
 		return false
 	}
 
-	if !utils.ValidateLengthName(pg.walletName.Editor.Text()) {
+	if !utils.ValidateLengthName(pg.walletName.Editor.Text()) && !pg.createLightningWltCheckBox.CheckBox.Value {
 		pg.walletName.SetError(values.String(values.StrWalletNameLengthError))
 		return false
 	}

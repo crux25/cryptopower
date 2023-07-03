@@ -266,6 +266,37 @@ func (pg *WalletDexServerSelector) walletWrapper(gtx C, wType libutils.AssetType
 	)
 }
 
+func (pg *WalletDexServerSelector) lightningSection(gtx C) D {
+	if !pg.WL.AssetsManager.LightningService.IsWalletCreated() {
+		return D{}
+	}
+	pg.shadowBox.SetShadowRadius(14)
+	return cryptomaterial.LinearLayout{
+		Width:      cryptomaterial.MatchParent,
+		Height:     cryptomaterial.WrapContent,
+		Padding:    layout.UniformInset(values.MarginPadding9),
+		Background: pg.Theme.Color.Surface,
+		Alignment:  layout.Middle,
+		Shadow:     pg.shadowBox,
+		Margin:     layout.UniformInset(values.MarginPadding5),
+		Border:     cryptomaterial.Border{Radius: cryptomaterial.Radius(14)},
+	}.Layout(gtx,
+		layout.Rigid(func(gtx C) D {
+			return layout.Inset{
+				Right: values.MarginPadding10,
+				Left:  values.MarginPadding10,
+			}.Layout(gtx, func(gtx C) D {
+				image := pg.Theme.Icons.BtcLightning
+				if image != nil {
+					return image.LayoutSize(gtx, values.MarginPadding30)
+				}
+				return D{}
+			})
+		}),
+		layout.Rigid(pg.Theme.Label(values.TextSize16, "BTC lightning wallet").Layout),
+	)
+}
+
 // start sync listener
 func (pg *WalletDexServerSelector) listenForNotifications() {
 	if pg.isListenerAdded {

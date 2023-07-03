@@ -13,9 +13,10 @@ import (
 )
 
 type Service struct {
-	daemon *Daemon
-	client *Client
-	config *ServiceConfig
+	basicRPCConn *grpc.ClientConn
+	daemon       *Daemon
+	client       *Client
+	config       *ServiceConfig
 }
 
 // ServiceConfig represents the configuration of the lightning service.
@@ -37,21 +38,27 @@ func (s *Service) Start() error {
 		go s.daemon.Start()
 		ticker := time.NewTicker(time.Second * 10)
 
-		// Wait for the daemon to start
-		// TODO: write a listener outside that doesn't block and doesn't use lightning client.
-		time.Sleep(120 * time.Second)
+		// Poll every 2 secs and start the client once the daemon is ready.
+		time.Sleep(2 * time.Second)
 
-		// TODO: This will fail because the daemon don't have a lightning wallet at this point, so admin macaroon
-		// is not created. Wallet should be created before calling this function.
-		cl, err := NewClient(buildClienConfig(s.config))
-		if err != nil {
-			log.Infof("Error creating client %+v \n", err)
-		}
-		s.client = cl
-		// poll and fetch node information to ascertain connectivity.
 		for {
 			select {
 			case <-ticker.C:
+				resp, err := s.getWalletState()
+				if err != nil {
+					fmt.Print(err)
+				}
+
+				if resp.State == lnrpc.WalletState_RPC_ACTIVE {
+					cl, err := NewClient(buildClienConfig(s.config))
+					if err == nil {
+						s.client = cl
+						// Return from this function if the client started succefully.
+						return
+					}
+					log.Infof("Error creating client %+v \n", err)
+				}
+
 				if s.client != nil {
 					state, err := s.client.Client.GetInfo(context.Background())
 					if err != nil {
@@ -66,6 +73,25 @@ func (s *Service) Start() error {
 		}
 	}()
 
+	return nil
+}
+
+func (s *Service) UnlockWallet(privatePassphrase string) error {
+	conn, err := s.getBasicClientCon()
+	if err != nil {
+		return err
+	}
+
+	req := &lnrpc.UnlockWalletRequest{
+		WalletPassword: []byte(privatePassphrase),
+		StatelessInit:  false,
+	}
+
+	client := lnrpc.NewWalletUnlockerClient(conn)
+	_, err = client.UnlockWallet(context.Background(), req)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -92,11 +118,13 @@ func (s *Service) InitWallet(privatePassphrase string) error {
 	if err != nil {
 		return err
 	}
-
 	return err
 }
 
 func (s *Service) getBasicClientCon() (*grpc.ClientConn, error) {
+	if s.basicRPCConn != nil {
+		return s.basicRPCConn, nil
+	}
 	creds, err := credentials.NewClientTLSFromFile(path.Join(s.config.WorkingDir, defaultTLSCertFilename), "")
 	if err != nil {
 		return nil, err
@@ -110,15 +138,42 @@ func (s *Service) getBasicClientCon() (*grpc.ClientConn, error) {
 		grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(lnrpc.MaxGrpcMsgSize)),
 	}
 
-	conn, err := grpc.Dial(defaultRPCHostPort, opts...)
+	s.basicRPCConn, err = grpc.Dial(defaultRPCHostPort, opts...)
 	if err != nil {
 		return nil, fmt.Errorf("unable to connect to RPC server: %v",
 			err)
 	}
 
-	return conn, nil
+	return s.basicRPCConn, nil
+}
+
+func (s *Service) getWalletState() (*lnrpc.SubscribeStateResponse, error) {
+	conn, err := s.getBasicClientCon()
+	if err != nil {
+		return nil, err
+	}
+	stateConn := lnrpc.NewStateClient(conn)
+	req := &lnrpc.SubscribeStateRequest{}
+	stream, err := stateConn.SubscribeState(context.Background(), req)
+	if err != nil {
+		return nil, err
+	}
+
+	// Recieve state message
+	return stream.Recv()
 }
 
 func (s *Service) GetClient() *Client {
 	return s.client
+}
+
+// IsWalletCreated returns true if the wallet has been created.
+func (s *Service) IsWalletCreated() bool {
+	resp, _ := s.getWalletState()
+	if resp != nil {
+		if resp.State != lnrpc.WalletState_NON_EXISTING {
+			return true
+		}
+	}
+	return false
 }

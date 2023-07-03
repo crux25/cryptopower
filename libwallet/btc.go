@@ -62,8 +62,8 @@ func (mgr *AssetsManager) CreateNewBTCWatchOnlyWallet(walletName, extendedPublic
 }
 
 // CreateNewBTCLightningWallet creates a new BTC lightning wallet.
-func (mgr *AssetsManager) CreateNewBTCLightningWallet(walletName, privatePassphrase string, privatePassphraseType int32) {
-	mgr.LightningService.InitWallet(privatePassphrase)
+func (mgr *AssetsManager) CreateNewBTCLightningWallet(walletName, privatePassphrase string, privatePassphraseType int32) error {
+	return mgr.LightningService.InitWallet(privatePassphrase)
 }
 
 // RestoreBTCWallet restores a BTC wallet from a seed and returns it.

@@ -157,3 +157,11 @@ func buildClienConfig(config *ServiceConfig) *ClientConfig {
 
 	return clientConfig
 }
+
+func (c *Client) GetInfo() (*lndclient.Info, error) {
+	return c.Client.GetInfo(context.Background())
+}
+
+func (c *Client) WalletBalance() (*lndclient.WalletBalance, error) {
+	return c.Client.WalletBalance(context.Background())
+}
